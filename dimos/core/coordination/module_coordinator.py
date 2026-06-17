@@ -207,14 +207,13 @@ class ModuleCoordinator(Resource):
 
         def _deploy_group(dep: str) -> None:
             deployed = self._managers[dep].deploy_parallel(specs_by_deployment[dep], blueprint_args)
-            for i, module in enumerate(deployed):
+            for i, (original_index, module) in enumerate(zip(indices_by_deployment[dep], deployed, strict=True)):
                 if module is not None:
                     spec_kwargs = specs_by_deployment[dep][i][2]
                     rpc_name = spec_kwargs.get("__dimos_rpc_name__")
                     if rpc_name and hasattr(module, "remote_name"):
                         module.remote_name = rpc_name
                         
-                original_index = indices_by_deployment[dep][i]
                 results[original_index] = module
 
         try:
@@ -469,14 +468,16 @@ class ModuleCoordinator(Resource):
         self,
         class_name: str,
         *,
+        namespace: str | None = None,
         reload_source: bool = True,
     ) -> None:
         with self._modules_lock:
             for key in self._deployed_modules:
-                if key.module.__name__ == class_name:
+                if key.module.__name__ == class_name and key.namespace == namespace:
                     self._restart_module(key, reload_source=reload_source)
                     return
-        raise ValueError(f"No deployed module with class name {class_name!r}")
+        ns_prefix = f"{namespace}/" if namespace else ""
+        raise ValueError(f"No deployed module with name {ns_prefix}{class_name!r}")
 
     def restart_module(
         self,
@@ -554,7 +555,9 @@ class ModuleCoordinator(Resource):
 
         self._deployed_modules[new_key] = new_proxy
 
-        new_bp = new_class.blueprint(**kwargs)
+        # Strip internal framework keys before calling blueprint() so they don't pollute kwargs
+        clean_kwargs = {k: v for k, v in kwargs.items() if not k.startswith("__dimos_")}
+        new_bp = new_class.blueprint(**clean_kwargs)
         new_atom = new_bp.active_blueprints[0]
         self._deployed_atoms[new_key] = new_atom
 
