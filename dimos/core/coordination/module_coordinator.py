@@ -288,7 +288,7 @@ class ModuleCoordinator(Resource):
                     streams[bp.namespace, remapped_name, conn.type].append((key, conn.name))
 
         for namespace, remapped_name, stream_type in streams.keys():
-            map_key = (remapped_name, stream_type)
+            map_key = (namespace, remapped_name, stream_type)
             if map_key in self._transport_registry:
                 transport = self._transport_registry[map_key]
             else:
