@@ -41,7 +41,6 @@ if TYPE_CHECKING:
 
 logger = setup_logger()
 
-
 class InstanceKey(NamedTuple):
     namespace: str | None
     module: type[ModuleBase]
@@ -71,7 +70,7 @@ class ModuleCoordinator(Resource):
         self._deployed_modules = {}
         self._deployed_atoms: dict[InstanceKey, BlueprintAtom] = {}
         self._resolved_module_refs: dict[tuple[InstanceKey, str], InstanceKey] = {}
-        self._transport_registry: dict[tuple[str, type], PubSubTransport[Any]] = {}
+        self._transport_registry: dict[tuple[str | None, str, type], PubSubTransport[Any]] = {}
         self._class_aliases: dict[InstanceKey, InstanceKey] = {}
         self._module_transports: dict[InstanceKey, dict[str, PubSubTransport[Any]]] = {}
         self._started = False
@@ -688,21 +687,21 @@ def _verify_no_name_conflicts(blueprint: Blueprint) -> None:
 
 def _verify_no_conflicts_with_existing(
     blueprint: Blueprint,
-    existing_registry: dict[tuple[str, type], PubSubTransport[Any]],
+    existing_registry: dict[tuple[str | None, str, type], PubSubTransport[Any]],
 ) -> None:
     """Check that a new blueprint's streams don't conflict with already-registered transports."""
     if not existing_registry:
         return
 
-    existing_names: dict[str, set[type]] = defaultdict(set)
-    for name, stream_type in existing_registry:
-        existing_names[name].add(stream_type)
+    existing_names: dict[tuple[str | None, str], set[type]] = defaultdict(set)
+    for namespace, name, stream_type in existing_registry:
+        existing_names[(namespace, name)].add(stream_type)
 
     for bp in blueprint.active_blueprints:
         for conn in bp.streams:
             remapped_name = blueprint.remapping_map.get((bp.module, conn.name), conn.name)
-            if isinstance(remapped_name, str) and remapped_name in existing_names:
-                for existing_type in existing_names[remapped_name]:
+            if isinstance(remapped_name, str) and (bp.namespace, remapped_name) in existing_names:
+                for existing_type in existing_names[(bp.namespace, remapped_name)]:
                     if existing_type != conn.type:
                         raise ValueError(
                             f"Stream '{remapped_name}' in {bp.module.__name__} has type "
@@ -890,9 +889,9 @@ def _connect_module_refs(
             spec = blueprint.remapping_map.get((bp.module, module_ref.name), module_ref.spec)
 
             if is_module_type(spec):
-                target_key = InstanceKey(bp.namespace, spec)
+                target_key = InstanceKey(bp.namespace, cast("type[ModuleBase]", spec))
                 if target_key not in module_coordinator._deployed_modules:
-                    target_key = InstanceKey(None, spec)
+                    target_key = InstanceKey(None, cast("type[ModuleBase]", spec))
                 mod_and_mod_ref_to_proxy[base_key, module_ref.name] = target_key
                 continue
 
