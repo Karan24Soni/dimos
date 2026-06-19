@@ -1,6 +1,6 @@
 from dimos.core.coordination.blueprints import autoconnect
 from dimos.core.coordination.test_blueprints import ModuleA, ModuleB
-from dimos.core.coordination.test_module_coordinator import dynamic_coordinator
+
 
 def test_namespaces_allow_duplicates_and_scope(dynamic_coordinator):
     """
@@ -11,4 +11,6 @@ def test_namespaces_allow_duplicates_and_scope(dynamic_coordinator):
     system_bp = autoconnect(robot1_bp, robot2_bp)
     assert len(system_bp.blueprints) == 4, "system blueprint should contain exactly 4 atoms"
     dynamic_coordinator.load_blueprint(system_bp)
-    assert dynamic_coordinator.n_modules == 4, "coordinator should be tracking exactly 4 active modules"
+    assert dynamic_coordinator.n_modules == 4, (
+        "coordinator should be tracking exactly 4 active modules"
+    )

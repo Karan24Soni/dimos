@@ -85,9 +85,9 @@ class BlueprintAtom:
     module: type[ModuleBase]
     streams: tuple[StreamRef, ...]
     module_refs: tuple[ModuleRef, ...]
-    #new
+    # new
     namespace: str | None = None
-    #end
+    # end
 
     @classmethod
     def create(cls, module: type[ModuleBase], kwargs: dict[str, Any]) -> Self:
@@ -179,12 +179,13 @@ class Blueprint:
         blueprint = BlueprintAtom.create(module, kwargs)
         return cls(blueprints=(blueprint,))
 
-    #new
+    # new
     def namespace(self, ns: str) -> "Blueprint":
         """Recursively apply namespace to all blueprint atoms."""
         new_atoms = tuple(replace(a, namespace=ns) for a in self.blueprints)
         return replace(self, blueprints=new_atoms)
-    #end
+
+    # end
 
     def disabled_modules(self, *modules: type[ModuleBase]) -> "Blueprint":
         return replace(self, disabled_modules_tuple=self.disabled_modules_tuple + modules)
@@ -261,10 +262,10 @@ def _eliminate_duplicates(blueprints: list[BlueprintAtom]) -> list[BlueprintAtom
     seen = set()
     unique_blueprints = []
     for bp in reversed(blueprints):
-        #new
+        # new
         key = (bp.namespace, bp.module)
         if key not in seen:
             seen.add(key)
             unique_blueprints.append(bp)
-        #end
+        # end
     return list(reversed(unique_blueprints))

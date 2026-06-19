@@ -41,6 +41,7 @@ if TYPE_CHECKING:
 
 logger = setup_logger()
 
+
 class InstanceKey(NamedTuple):
     namespace: str | None
     module: type[ModuleBase]
@@ -151,7 +152,10 @@ class ModuleCoordinator(Resource):
 
     def list_module_names(self) -> list[str]:
         with self._modules_lock:
-            return [f"{k.namespace}/{k.module.__name__}" if k.namespace else k.module.__name__ for k in self._deployed_modules]
+            return [
+                f"{k.namespace}/{k.module.__name__}" if k.namespace else k.module.__name__
+                for k in self._deployed_modules
+            ]
 
     def health_check(self) -> bool:
         return all(m.health_check() for m in self._managers.values())
@@ -176,8 +180,8 @@ class ModuleCoordinator(Resource):
         deployed_module = self._managers[module_class.deployment].deploy(
             module_class, global_config, kwargs
         )
-        
-        # patch the proxy hardcoded remote name so it correctly targets the namespace 
+
+        # patch the proxy hardcoded remote name so it correctly targets the namespace
         rpc_name = kwargs.get("__dimos_rpc_name__")
         if rpc_name and hasattr(deployed_module, "remote_name"):
             deployed_module.remote_name = rpc_name
@@ -207,13 +211,15 @@ class ModuleCoordinator(Resource):
 
         def _deploy_group(dep: str) -> None:
             deployed = self._managers[dep].deploy_parallel(specs_by_deployment[dep], blueprint_args)
-            for i, (original_index, module) in enumerate(zip(indices_by_deployment[dep], deployed, strict=True)):
+            for i, (original_index, module) in enumerate(
+                zip(indices_by_deployment[dep], deployed, strict=True)
+            ):
                 if module is not None:
                     spec_kwargs = specs_by_deployment[dep][i][2]
                     rpc_name = spec_kwargs.get("__dimos_rpc_name__")
                     if rpc_name and hasattr(module, "remote_name"):
                         module.remote_name = rpc_name
-                        
+
                 results[original_index] = module
 
         try:
@@ -277,7 +283,9 @@ class ModuleCoordinator(Resource):
                 module.on_system_modules(modules)
 
     def _connect_streams(self, blueprint: Blueprint) -> None:
-        streams: dict[tuple[str | None, str, type], list[tuple[InstanceKey, str]]] = defaultdict(list)
+        streams: dict[tuple[str | None, str, type], list[tuple[InstanceKey, str]]] = defaultdict(
+            list
+        )
 
         for bp in blueprint.active_blueprints:
             key = InstanceKey(bp.namespace, bp.module)
@@ -455,9 +463,7 @@ class ModuleCoordinator(Resource):
         del self._deployed_modules[key]
         self._deployed_atoms.pop(key, None)
         self._module_transports.pop(key, None)
-        self._class_aliases = {
-            k: v for k, v in self._class_aliases.items() if v != key
-        }
+        self._class_aliases = {k: v for k, v in self._class_aliases.items() if v != key}
         self._resolved_module_refs = {
             k: target
             for k, target in self._resolved_module_refs.items()
@@ -494,7 +500,9 @@ class ModuleCoordinator(Resource):
         held a reference to it.
         """
         with self._modules_lock:
-            return self._restart_module(InstanceKey(None, module_class), reload_source=reload_source)
+            return self._restart_module(
+                InstanceKey(None, module_class), reload_source=reload_source
+            )
 
     def _restart_module(
         self,
@@ -515,7 +523,7 @@ class ModuleCoordinator(Resource):
         old_atom = self._deployed_atoms[key]
         kwargs = dict(old_atom.kwargs)
         saved_transports = dict(self._module_transports.get(key, {}))
-        
+
         inbound_refs = [
             (consumer_key, ref_name)
             for (consumer_key, ref_name), target in self._resolved_module_refs.items()
@@ -546,7 +554,9 @@ class ModuleCoordinator(Resource):
             self._class_aliases[key] = new_key
 
         kwargs["__dimos_namespace__"] = key.namespace
-        kwargs["__dimos_rpc_name__"] = f"{key.namespace}/{new_class.__name__}" if key.namespace else new_class.__name__
+        kwargs["__dimos_rpc_name__"] = (
+            f"{key.namespace}/{new_class.__name__}" if key.namespace else new_class.__name__
+        )
 
         python_wm = cast("WorkerManagerPython", self._managers["python"])
         new_proxy = python_wm.deploy_fresh(new_class, self._global_config, kwargs)
@@ -622,7 +632,10 @@ def _is_name_unique(blueprint: Blueprint, name: str, namespace: str | None = Non
                     count += 1
     return count == 1
 
-def _get_transport_for(blueprint: Blueprint, name: str, stream_type: type, namespace: str | None = None) -> PubSubTransport[Any]:
+
+def _get_transport_for(
+    blueprint: Blueprint, name: str, stream_type: type, namespace: str | None = None
+) -> PubSubTransport[Any]:
     transport = blueprint.transport_map.get((name, stream_type), None)
     if transport:
         return transport
@@ -634,6 +647,7 @@ def _get_transport_for(blueprint: Blueprint, name: str, stream_type: type, names
 
     transport = pLCMTransport(topic) if use_pickled else LCMTransport(topic, stream_type)
     return transport
+
 
 def _verify_no_name_conflicts(blueprint: Blueprint) -> None:
     name_to_types: dict[Any, set[type]] = defaultdict(set)
@@ -740,7 +754,9 @@ def _deploy_all_modules(
     for bp in blueprint.active_blueprints:
         kwargs = bp.kwargs.copy()
         kwargs["__dimos_namespace__"] = bp.namespace
-        kwargs["__dimos_rpc_name__"] = f"{bp.namespace}/{bp.module.__name__}" if bp.namespace else bp.module.__name__
+        kwargs["__dimos_rpc_name__"] = (
+            f"{bp.namespace}/{bp.module.__name__}" if bp.namespace else bp.module.__name__
+        )
         module_specs.append((bp.module, gc, kwargs))
 
     module_coordinator.deploy_parallel(module_specs, blueprint_args)
@@ -904,15 +920,17 @@ def _connect_module_refs(
 
             base_instance = module_coordinator.get_instance_by_key(base_key)
             target_instance: Any = module_coordinator.get_instance_by_key(target_key)
-            
+
             if target_instance is None:
-                logger.error(f"Failed to wire {base_key} -> {ref_name}. Target {target_key} not found.")
+                logger.error(
+                    f"Failed to wire {base_key} -> {ref_name}. Target {target_key} not found."
+                )
                 continue
 
             async_methods = _async_methods_of_spec(declared_spec.get((base_key, ref_name)))
             if async_methods:
                 target_instance = AsyncSpecProxy(target_instance, async_methods)
-                
+
             setattr(base_instance, ref_name, target_instance)
             base_instance.set_module_ref(ref_name, target_instance)
             module_coordinator._resolved_module_refs[base_key, ref_name] = target_key
