@@ -47,7 +47,6 @@ unitree_g1_vis = vis_module(
                 "world/odometry": g1_odometry_tf_override,
                 "world/lidar": None,
                 "world/local_map": None,
-                "world/global_map_fastlio": None,
                 "world/global_costmap": g1_costmap,
                 "world/path": _g1_path_colors,
             },
@@ -57,5 +56,3 @@ unitree_g1_vis = vis_module(
         vis_throttle=0.5,
     ),
 )
-
-__all__ = ["unitree_g1_vis"]
